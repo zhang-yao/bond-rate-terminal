@@ -32,7 +32,7 @@ function fetchPledgedRepoRates_() {
     "https://www.chinamoney.com.cn/r/cms/www/chinamoney/data/currency/prr-md.json?t=" +
     Date.now();
 
-  var res = UrlFetchApp.fetch(url, {
+  var res = safeFetch_(url, {
     method: "get",
     muteHttpExceptions: true
   });
@@ -133,7 +133,7 @@ function backfillMoneyMarket(startDate, endDate) {
     "https://www.chinamoney.com.cn/r/cms/www/chinamoney/data/currency/prr-chrt.csv?t=" +
     Date.now();
 
-  var res = UrlFetchApp.fetch(url, {
+  var res = safeFetch_(url, {
     method: "get",
     muteHttpExceptions: true
   });

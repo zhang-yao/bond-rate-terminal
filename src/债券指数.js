@@ -17,7 +17,7 @@ function GetCSIBondIndexData(code) {
   };
 
   try {
-    var response = UrlFetchApp.fetch(url, options);
+    var response = safeFetch_(url, options);
     var json = JSON.parse(response.getContentText());
 
     // 假设返回的数据结构如下：
@@ -70,7 +70,7 @@ function GetCNIBondIndexData(code) {
   };
 
   try {
-    var response = UrlFetchApp.fetch(url, options);
+    var response = safeFetch_(url, options);
     var json = JSON.parse(response.getContentText());
     Logger.log(json);
     var data = json.data;
@@ -164,7 +164,7 @@ function GetChinabondIndexDuration( id ) {
   };
 
   try {
-    var response = UrlFetchApp.fetch(url, options);
+    var response = safeFetch_(url, options);
     var json = JSON.parse(response.getContentText());
     
     // 平均市值法久期、到期收益率、凸性

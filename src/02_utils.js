@@ -1,18 +1,18 @@
 /********************
- * 02_utils.gs
- * 公共工具函数
+ * 02_utils.js
+ * 公共工具函数。
  ********************/
 
 /**
- * Date -> yyyy-MM-dd
+ * 将日期值标准化为 yyyy-MM-dd。
  */
 function formatDate_(d) {
   if (!(d instanceof Date)) d = new Date(d);
-  return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 /**
- * 解析 yyyy-MM-dd / yy-MM-dd
+ * 解析 yyyy-MM-dd / yy-MM-dd 为 Date。
  */
 function parseYMD_(s) {
   if (!s) return null;
@@ -32,30 +32,29 @@ function parseYMD_(s) {
 }
 
 /**
- * 统一标准化为 yyyy-MM-dd
+ * 将常见日期输入统一为 yyyy-MM-dd。
  */
 function normYMD_(v) {
-  if (v === null || v === undefined || v === "") return "";
+  if (v === null || v === undefined || v === '') return '';
 
   if (v instanceof Date && !isNaN(v.getTime())) {
     return formatDate_(v);
   }
 
   var s = String(v).trim();
-  if (!s) return "";
+  if (!s) return '';
 
   var d = parseYMD_(s);
   if (d) return formatDate_(d);
 
-  // 兼容 2026/3/6、2026.3.6、26/3/6、26.3.6
   var m4 = s.match(/^(\d{4})[\/.](\d{1,2})[\/.](\d{1,2})$/);
   if (m4) {
-    return m4[1] + "-" + ("0" + m4[2]).slice(-2) + "-" + ("0" + m4[3]).slice(-2);
+    return m4[1] + '-' + ('0' + m4[2]).slice(-2) + '-' + ('0' + m4[3]).slice(-2);
   }
 
   var m2 = s.match(/^(\d{2})[\/.](\d{1,2})[\/.](\d{1,2})$/);
   if (m2) {
-    return "20" + m2[1] + "-" + ("0" + m2[2]).slice(-2) + "-" + ("0" + m2[3]).slice(-2);
+    return '20' + m2[1] + '-' + ('0' + m2[2]).slice(-2) + '-' + ('0' + m2[3]).slice(-2);
   }
 
   var dt = new Date(s);
@@ -67,14 +66,14 @@ function normYMD_(v) {
 }
 
 /**
- * 今天 yyyy-MM-dd
+ * 返回今天的 yyyy-MM-dd。
  */
 function today_() {
   return formatDate_(new Date());
 }
 
 /**
- * 是否周末
+ * 判断是否为周末。
  */
 function isWeekend_(d) {
   if (!(d instanceof Date)) d = parseYMD_(d);
@@ -84,8 +83,8 @@ function isWeekend_(d) {
 }
 
 /**
- * 构建某列的日期索引 Set
- * colIndex: 0-based
+ * 按指定列构建日期索引集合。
+ * colIndex 为 0-based。
  */
 function buildDateIndex_(sheet, colIndex) {
   var set = new Set();
@@ -94,14 +93,14 @@ function buildDateIndex_(sheet, colIndex) {
 
   var vals = sheet.getRange(2, colIndex + 1, lastRow - 1, 1).getDisplayValues();
   for (var i = 0; i < vals.length; i++) {
-    var k = normYMD_(vals[i][0]);
-    if (k) set.add(k);
+    var key = normYMD_(vals[i][0]);
+    if (key) set.add(key);
   }
   return set;
 }
 
 /**
- * 安全 fetch
+ * 带重试的安全抓取。
  */
 function safeFetch_(url, options, retryTimes) {
   retryTimes = retryTimes || 3;
@@ -118,12 +117,12 @@ function safeFetch_(url, options, retryTimes) {
     }
   }
 
-  throw lastErr || new Error("safeFetch_ failed");
+  throw lastErr || new Error('safeFetch_ failed');
 }
 
-
-
-
+/**
+ * 去除 HTML 标签并还原常见实体字符。
+ */
 function stripTags_(html) {
   if (html == null || html === '') return '';
   return String(html)
@@ -140,18 +139,33 @@ function stripTags_(html) {
     .trim();
 }
 
-
-function mustGetSheet_(name) {
+/**
+ * 获取指定工作表；兼容 mustGetSheet_(name) 与 mustGetSheet_(ss, name) 两种调用方式。
+ */
+function mustGetSheet_(spreadsheetOrName, maybeName) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var name = spreadsheetOrName;
+
+  if (typeof spreadsheetOrName !== 'string') {
+    ss = spreadsheetOrName || ss;
+    name = maybeName;
+  }
+
   var sh = ss.getSheetByName(name);
-  if (!sh) throw new Error("sheet not found: " + name);
+  if (!sh) throw new Error('sheet not found: ' + name);
   return sh;
 }
 
+/**
+ * 统一表头键名。
+ */
 function normalizeHeader_(h) {
   return String(h).trim().toLowerCase();
 }
 
+/**
+ * 基于表头数组构建列索引。
+ */
 function buildHeaderIndex_(headers) {
   var map = {};
   headers.forEach(function (h, i) {
@@ -160,29 +174,44 @@ function buildHeaderIndex_(headers) {
   return map;
 }
 
+/**
+ * 校验指定列存在并返回列索引。
+ */
 function requireColumn_(index, name) {
   var key = normalizeHeader_(name);
   if (!(key in index)) {
-    throw new Error("missing column: " + name);
+    throw new Error('missing column: ' + name);
   }
   return index[key];
 }
 
+/**
+ * 将值转换为数字；空值返回 null。
+ */
 function toNumberOrNull_(v) {
-  if (v === "" || v === null) return null;
+  if (v === '' || v === null) return null;
   var n = Number(v);
   return isNaN(n) ? null : n;
 }
 
+/**
+ * 判断值是否为有限数字。
+ */
 function isFiniteNumber_(v) {
-  return typeof v === "number" && isFinite(v);
+  return typeof v === 'number' && isFinite(v);
 }
 
+/**
+ * 将表格中的日期值转为 Date。
+ */
 function normalizeSheetDate_(v) {
   if (v instanceof Date) return v;
   return new Date(v);
 }
 
+/**
+ * 宽松解析日期输入，只保留年月日。
+ */
 function normalizeLooseDate_(v) {
   if (v == null || v === '') return null;
 
@@ -206,8 +235,9 @@ function normalizeLooseDate_(v) {
   return null;
 }
 
+/**
+ * Date 转 yyyy-MM-dd 键值。
+ */
 function formatDateKey_(dateObj) {
   return Utilities.formatDate(dateObj, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
-
-

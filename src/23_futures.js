@@ -56,7 +56,6 @@ function fetchSinaFuturePrice_(symbol) {
   return "";
 }
 
-
 /********************
 * 8) macro_dashboard：一屏终端
 ********************/

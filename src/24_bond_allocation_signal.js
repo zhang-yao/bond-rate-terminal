@@ -18,8 +18,6 @@
 *   - comment     解释说明
 ********************/
 
-
-
 /***************************************
  * 30_bond_allocation_signal.gs
  * 修正版：先排序，再按历史窗口计算 MA120 / pct250
@@ -422,4 +420,3 @@ function testBondAllocationSignalLast10_() {
   var values = sheet.getDataRange().getValues();
   Logger.log(values.slice(0, Math.min(values.length, 11)));
 }
-

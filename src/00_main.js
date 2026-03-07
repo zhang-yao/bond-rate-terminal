@@ -4,14 +4,14 @@
  ********************/
 
 /**
- * 本地手工测试入口。
+ * 手工测试入口：执行完整日更流程。
  */
 function test() {
   runEnhancedSystem();
 }
 
 /**
- * 主入口：抓取当日数据并重建派生表。
+ * 主入口：抓取当日原始数据，并重建统一指标表与统一信号表。
  */
 function runEnhancedSystem() {
   var today = formatDate_(new Date());
@@ -45,15 +45,11 @@ function resumeBackfillSafe() {
 }
 
 /**
- * 重建所有派生表与总览面板。
+ * 重建所有中间指标与信号表。
  */
 function rebuildAll_() {
-  updateDashboard_();
-  buildCurveHistory_();
-  buildCurveSlope_();
-  buildETFSignal_();
-  buildBondAllocationSignal_();
-  buildMacroDashboard_();
+  buildMetrics_();
+  buildSignal_();
 }
 
 /**
@@ -69,14 +65,4 @@ function showBackfillCursor() {
 function resetBackfillCursor() {
   clearBackfillCursor_();
   Logger.log('BACKFILL_CURSOR cleared');
-}
-
-/**
- * 回补最近 120 天的 money_market 数据。
- */
-function backfillMoneyMarketLast120Days() {
-  var end = new Date();
-  var start = new Date(end);
-  start.setDate(end.getDate() - 120);
-  backfillMoneyMarket(formatDate_(start), formatDate_(end));
 }

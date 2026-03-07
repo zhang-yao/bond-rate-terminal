@@ -34,16 +34,16 @@ function runBondAllocationSignal_() {
 function buildBondAllocationSignal_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  var curveHistorySheet = mustGetSheet_(ss, 'curve_history');
-  var curveSlopeSheet = mustGetSheet_(ss, 'curve_slope');
-  var moneyMarketSheet = mustGetSheet_(ss, 'money_market');
-  var rateDashboardSheet = mustGetSheet_(ss, 'rate_dashboard');
-  var outSheet = mustGetSheet_(ss, 'bond_allocation_signal');
+  var curveHistorySheet = mustGetSheet_(ss, SHEET_HIST );
+  var curveSlopeSheet = mustGetSheet_(ss, SHEET_SLOPE);
+  var moneyMarketSheet = mustGetSheet_(ss, SHEET_MM);
+  var rateDashboardSheet = mustGetSheet_(ss, SHEET_DASH);
+  var outSheet = mustGetSheet_(ss, SHEET_MACRO);
 
   // 1) 读取 curve_history
   var curveRows = readCurveHistoryRows_(curveHistorySheet);
   if (!curveRows.length) {
-    throw new Error('curve_history 无有效数据。');
+    throw new Error( SHEET_HIST +  ' 无有效数据。');
   }
 
   // 按日期升序，并对重复日期去重（保留最后一个）

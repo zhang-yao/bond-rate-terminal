@@ -13,13 +13,24 @@ function runDailyWide_(date) {
   ensureCurveHeader_(sheet);
 
   var index = buildCurveIndex_(sheet);
-  var ids = CURVES.map(function (c) {
-    return c.id;
+  var batchCurves = CURVES.filter(function(c) {
+    return !c.fetch_separately;
   });
-  Logger.log('曲线数: ' + ids.length);
+  var singleCurves = CURVES.filter(function(c) {
+    return !!c.fetch_separately;
+  });
 
-  var html = fetchChinaBondCurves_(date, ids);
-  var parsed = parseChinaBondCurvesPairwise_(html);
+  Logger.log('曲线数: total=' + CURVES.length + ' batch=' + batchCurves.length + ' single=' + singleCurves.length);
+
+  var batchBlocks = [];
+  var usedBlockIndex = {};
+  if (batchCurves.length) {
+    var batchIds = batchCurves.map(function(c) {
+      return c.id;
+    });
+    var html = fetchChinaBondCurves_(date, batchIds);
+    batchBlocks = parseChinaBondCurveBlocks_(html);
+  }
 
   var inserted = 0;
   var skipped = 0;
@@ -35,16 +46,23 @@ function runDailyWide_(date) {
       continue;
     }
 
-    var map = parsed[curve.name];
+    var matched = null;
+    if (curve.fetch_separately) {
+      matched = fetchChinaBondCurveSeparately_(date, curve);
+    } else {
+      matched = resolveCurveBlock_(curve, batchBlocks, usedBlockIndex, findCurveRequestIndex_(batchCurves, curve.name));
+    }
+
+    var map = matched ? matched.map : null;
     if (!map || map.size === 0) {
-      Logger.log('❌ 无数据/未解析到: ' + curve.name);
+      Logger.log('❌ 无数据/未解析到: ' + curve.name + ' id=' + curve.id + ' mode=' + (curve.fetch_separately ? 'single' : 'batch'));
       failed++;
       continue;
     }
 
     try {
       appendCurveRowFixed_(sheet, date, curve.name, map);
-      Logger.log('✅ 插入: ' + key + ' 节点=' + map.size);
+      Logger.log('✅ 插入: ' + key + ' 节点=' + map.size + ' sourceTitle=' + matched.title + ' mode=' + (curve.fetch_separately ? 'single' : 'batch'));
       inserted++;
     } catch (e) {
       Logger.log('❌ 插入失败: ' + key + ' err=' + e);
@@ -72,6 +90,27 @@ function buildShortCacheKey_(prefix, dateStr, ids) {
   }).join('');
 
   return prefix + '_' + dateStr.replace(/-/g, '') + '_' + hex;
+}
+
+
+function findCurveRequestIndex_(curves, curveName) {
+  for (var i = 0; i < curves.length; i++) {
+    if (curves[i] && curves[i].name === curveName) return i;
+  }
+  return -1;
+}
+
+function fetchChinaBondCurveSeparately_(date, curve) {
+  var html = fetchChinaBondCurves_(date, [curve.id]);
+  var blocks = parseChinaBondCurveBlocks_(html);
+  if (!blocks.length) return null;
+  if (blocks.length === 1) return blocks[0];
+
+  var matched = resolveCurveBlock_(curve, blocks, {}, 0);
+  if (matched) return matched;
+
+  Logger.log('⚠️ 单独抓取返回多个 block，兜底取第一个: ' + curve.name + ' count=' + blocks.length);
+  return blocks[0];
 }
 
 function fetchChinaBondCurves_(workTime, ycDefIds) {
@@ -115,30 +154,104 @@ function fetchChinaBondCurves_(workTime, ycDefIds) {
 }
 
 /**
- * 将页面中的标题表和数据表配对解析为曲线映射。
+ * 将页面中的标题表和数据表按顺序解析为 blocks。
  */
-function parseChinaBondCurvesPairwise_(html) {
-  var result = {};
+function parseChinaBondCurveBlocks_(html) {
+  var blocks = [];
   var pairRe = /<table[^>]*class="t1"[\s\S]*?<span>\s*([^<]+?)\s*<\/span>[\s\S]*?<\/table>\s*<table[^>]*class="tablelist"[\s\S]*?<\/table>/gi;
 
   var match;
   while ((match = pairRe.exec(html)) !== null) {
-    var title = match[1];
+    var title = stripTags_(match[1]);
     var block = match[0];
     var tableMatch = block.match(/<table[^>]*class="tablelist"[\s\S]*?<\/table>/i);
     if (!tableMatch) continue;
 
     var map = parseTableListToMap_(tableMatch[0]);
-    var name = normalizeCurveName_(title);
-    if (name) {
-      result[name] = map;
-      Logger.log('解析: ' + name + ' title=' + title + ' nodes=' + map.size);
-    } else {
-      Logger.log('⚠️ 未映射曲线标题: ' + title + ' nodes=' + map.size);
+    var titleKey = buildCurveTitleKey_(title);
+    blocks.push({
+      title: title,
+      titleKey: titleKey,
+      map: map
+    });
+    Logger.log('解析block[' + (blocks.length - 1) + ']: title=' + title + ' key=' + titleKey + ' nodes=' + map.size);
+  }
+
+  return blocks;
+}
+
+/**
+ * 将页面标题与内部曲线名统一压缩成便于匹配的 key。
+ */
+function buildCurveTitleKey_(text) {
+  return String(text || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[（(]/g, '')
+    .replace(/[）)]/g, '')
+    .replace(/＋/g, '+')
+    .replace(/&amp;/gi, '&')
+    .replace(/中债/gi, '')
+    .replace(/收益率曲线/gi, '')
+    .replace(/yield\s*curve/gi, '')
+    .replace(/curve/gi, '')
+    .replace(/chinabond/gi, '')
+    .replace(/governmentbond/gi, '国债')
+    .replace(/policybank/gi, '国开债')
+    .replace(/enterprisebond/gi, '企业债')
+    .replace(/cp&note/gi, '中票')
+    .replace(/commercialbank/gi, '银行')
+    .replace(/financialbondof/gi, '')
+    .replace(/financialbond/gi, '银行债')
+    .replace(/ordinarybond/gi, '普通债')
+    .replace(/negotiablecd/gi, '存单')
+    .replace(/ncd/gi, '存单')
+    .replace(/localgovernment/gi, '地方债')
+    .replace(/地方政府债/g, '地方债')
+    .replace(/中短期票据/g, '中票')
+    .replace(/中期票据/g, '中票')
+    .replace(/商业银行普通债/g, '银行债')
+    .replace(/商业银行债/g, '银行债')
+    .replace(/同业存单/g, '存单')
+    .replace(/城投债/g, '城投')
+    .replace(/lgfv/gi, '城投')
+    .replace(/\.|\-|_/g, '')
+    .toLowerCase();
+}
+
+/**
+ * 根据 CURVES 配置的 name / aliases 与解析出的标题做匹配。
+ * 先按别名匹配，匹配不到再按请求顺序兜底。
+ */
+function resolveCurveBlock_(curve, blocks, usedBlockIndex, requestIndex) {
+  var aliases = [curve.name].concat(curve.aliases || []);
+  var aliasKeys = aliases.map(function(alias) {
+    return buildCurveTitleKey_(alias);
+  });
+
+  for (var i = 0; i < blocks.length; i++) {
+    if (usedBlockIndex[i]) continue;
+
+    var block = blocks[i];
+    for (var j = 0; j < aliasKeys.length; j++) {
+      var aliasKey = aliasKeys[j];
+      if (!aliasKey) continue;
+      if (block.titleKey === aliasKey || block.titleKey.indexOf(aliasKey) >= 0 || aliasKey.indexOf(block.titleKey) >= 0) {
+        usedBlockIndex[i] = true;
+        Logger.log('匹配曲线: ' + curve.name + ' <= ' + block.title + ' via alias=' + aliases[j]);
+        return block;
+      }
     }
   }
 
-  return result;
+  if (requestIndex < blocks.length && !usedBlockIndex[requestIndex]) {
+    usedBlockIndex[requestIndex] = true;
+    Logger.log('⚠️ 按顺序兜底匹配: ' + curve.name + ' <= ' + blocks[requestIndex].title);
+    return blocks[requestIndex];
+  }
+
+  Logger.log('⚠️ 未找到匹配 block: ' + curve.name + ' aliases=' + aliases.join(' | '));
+  return null;
 }
 
 /**
@@ -168,17 +281,6 @@ function parseTableListToMap_(tableHtml) {
   }
 
   return map;
-}
-
-/**
- * 将页面标题统一映射为项目内使用的曲线名。
- */
-function normalizeCurveName_(title) {
-  if (title.indexOf('国债收益率曲线') >= 0) return '国债';
-  if (title.indexOf('国开债收益率曲线') >= 0) return '国开债';
-  if (title.indexOf('企业债收益率曲线') >= 0 && title.indexOf('(AAA)') >= 0) return 'AAA信用';
-  if (title.indexOf('企业债收益率曲线') >= 0 && (title.indexOf('(AA+)') >= 0 || title.indexOf('(AA＋)') >= 0)) return 'AA+信用';
-  return '';
 }
 
 /**

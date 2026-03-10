@@ -26,19 +26,26 @@ var TERMS = [
 
 /**
  * 中债曲线配置。
- * 说明：地方债历史较短，当前仍作为扩展曲线保留。
+ * 约定：
+ * - tier 仅用于固化分层，不影响现有表结构与指标/信号口径
+ * - fetch_separately=true 的曲线需要单独请求，不能与其他曲线合并抓取
  */
 var CURVES = [
-  { name: '国债', id: '2c9081e50a2f9606010a3068cae70001' },
-  { name: '国开债', id: '8a8b2ca037a7ca910137bfaa94fa5057' },
-  { name: 'AAA信用', id: '2c9081e50a2f9606010a309f4af50111' },
-  { name: 'AA+信用', id: '2c908188138b62cd01139a2ee6b51e25' },
-  { name: 'AAA+中票', id: '2c9081e9257ddf2a012590efdded1d35' },
-  { name: 'AAA中票', id: '2c9081880fa9d507010fb8505b393fe7' },
-  { name: 'AAA城投', id: '2c9081e91b55cc84011be3c53b710598' },
-  { name: 'AAA银行债', id: '2c9081e9259b766a0125be8b5115149f' },
-  { name: 'AAA存单', id: '8308218D1D030E0DE0540010E03EE6DA' },
-  { name: '地方债', id: '998183ff8c00f640018c32d4721a0d16' }
+  // 主曲线
+  { name: '国债', id: '2c9081e50a2f9606010a3068cae70001', tier: 'main', aliases: ['国债收益率曲线', 'Government Bond'] },
+  { name: '国开债', id: '8a8b2ca037a7ca910137bfaa94fa5057', tier: 'main', aliases: ['国开债收益率曲线', '政策性金融债', 'Policy Bank'] },
+  { name: 'AAA信用', id: '2c9081e50a2f9606010a309f4af50111', tier: 'main', aliases: ['企业债收益率曲线(AAA)', '企业债AAA', 'Enterprise Bond AAA'] },
+  { name: 'AA+信用', id: '2c908188138b62cd01139a2ee6b51e25', tier: 'main', aliases: ['企业债收益率曲线(AA+)', '企业债收益率曲线(AA＋)', '企业债AA+', 'Enterprise Bond AA+'] },
+  { name: 'AAA+中票', id: '2c9081e9257ddf2a012590efdded1d35', tier: 'main', aliases: ['中短期票据收益率曲线(AAA+)', '中票AAA+', 'CP&Note AAA+'] },
+  { name: 'AAA中票', id: '2c9081880fa9d507010fb8505b393fe7', tier: 'main', aliases: ['中短期票据收益率曲线(AAA)', '中票AAA', 'CP&Note AAA'] },
+  { name: 'AAA存单', id: '8308218D1D030E0DE0540010E03EE6DA', tier: 'main', aliases: ['同业存单收益率曲线(AAA)', '存单AAA', 'NCD AAA', 'Negotiable CD AAA'] },
+
+  // 扩展曲线
+  { name: 'AAA城投', id: '2c9081e91b55cc84011be3c53b710598', tier: 'extended', aliases: ['城投债收益率曲线(AAA)', '城投AAA', 'LGFV AAA'] },
+  { name: 'AAA银行债', id: '2c9081e9259b766a0125be8b5115149f', tier: 'extended', aliases: ['商业银行普通债收益率曲线(AAA)', '商业银行债收益率曲线(AAA)', '银行债AAA', 'Financial Bond of Commercial Bank AAA'] },
+
+  // 历史较短曲线
+  { name: '地方债', id: '998183ff8c00f640018c32d4721a0d16', tier: 'short_history', fetch_separately: true, aliases: ['地方政府债收益率曲线', '地方政府债', 'Local Government'] }
 ];
 
 /**

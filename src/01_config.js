@@ -5,21 +5,17 @@
 
 /** 原始数据表 */
 var SHEET_CURVE_RAW = '原始_收益率曲线';
-var SHEET_MONEY_MARKET_RAW = '原始_资金面';
+var SHEET_MONEY_MARKET_RAW = '原始_货币';
 var SHEET_FUTURES_RAW = '原始_国债期货';
 
+var SHEET_POLICY_RATE_RAW = "原始_政策利率";
+
+
 /** 汇总指标与信号表 */
-var SHEET_METRICS = '指标_利率';
-var SHEET_SIGNAL = '信号_利率';
+var SHEET_METRICS = '指标';
+var SHEET_SIGNAL = '信号';
 
-/** 兼容旧常量名：指标层已并表到 SHEET_METRICS。 */
-var SHEET_CURVE_HISTORY = SHEET_METRICS;
-var SHEET_CURVE_SLOPE = SHEET_METRICS;
-var SHEET_RATE_METRICS = SHEET_METRICS;
 
-/** 兼容旧常量名：信号层已并表到 SHEET_SIGNAL。 */
-var SHEET_ETF_SIGNAL = SHEET_SIGNAL;
-var SHEET_BOND_ALLOC_SIGNAL = SHEET_SIGNAL;
 
 /** 固定期限列，单位为年。 */
 var TERMS = [

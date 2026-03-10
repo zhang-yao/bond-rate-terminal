@@ -7,7 +7,7 @@
  * 手工测试入口：执行完整日更流程。
  */
 function test() {
-  rebuildAll_();
+  runEnhancedSystem();
 }
 
 /**

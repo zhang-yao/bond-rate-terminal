@@ -21,6 +21,14 @@ function runEnhancedSystem() {
   runDailyWide_(today);
   fetchPledgedRepoRates_();
   fetchBondFutures_();
+
+  /**
+   * 海外宏观原始表：
+   * - 已配置 FRED / ALPHA_VANTAGE secrets 时自动抓取
+   * - 未配置时仅打印提示并跳过，不阻塞现有国内数据流程
+   */
+  fetchOverseasMacro_();
+
   rebuildAll_();
 }
 

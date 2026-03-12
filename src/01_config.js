@@ -77,3 +77,112 @@ var SIGNAL_THRESHOLDS = {
   funding_tight: 1.90,
   funding_loose: 1.60
 };
+
+
+/** 海外宏观原始表 */
+var SHEET_OVERSEAS_MACRO_RAW = '原始_海外宏观';
+
+/**
+ * 海外宏观原始表表头。
+ *
+ * 设计说明：
+ * - date 表示“本次快照对应的主要观测日期”，不等同于抓取时间
+ * - fetched_at 表示脚本真正抓取并写表的时间，用于“今天是否已经抓过”的判重
+ * - source 用于记录本行使用了哪些数据源以及关键 observation date，便于排错
+ */
+var OVERSEAS_MACRO_HEADERS = [
+  'date',
+  'fed_upper',
+  'fed_lower',
+  'sofr',
+  'ust_2y',
+  'ust_10y',
+  'us_real_10y',
+  'usd_broad',
+  'usd_cny',
+  'gold',
+  'wti',
+  'brent',
+  'copper',
+  'vix',
+  'spx',
+  'nasdaq_100',
+  'source',
+  'fetched_at'
+];
+
+/**
+ * 海外宏观列索引（0-based）。
+ * 主要用于拼装 row 与从工作表中取出 fetched_at 判重。
+ */
+var OVERSEAS_MACRO_COL = {
+  date: 0,
+  fed_upper: 1,
+  fed_lower: 2,
+  sofr: 3,
+  ust_2y: 4,
+  ust_10y: 5,
+  us_real_10y: 6,
+  usd_broad: 7,
+  usd_cny: 8,
+  gold: 9,
+  wti: 10,
+  brent: 11,
+  copper: 12,
+  vix: 13,
+  spx: 14,
+  nasdaq_100: 15,
+  source: 16,
+  fetched_at: 17
+};
+
+/**
+ * FRED 序列映射。
+ *
+ * 说明：
+ * - 这里只保存“字段 -> FRED series_id”的映射
+ * - 真正抓取逻辑统一放在 15_raw_overseas_macro.js 中
+ * - usd_broad 使用更稳定的 broad dollar index 口径，而不是 ICE DXY
+ * - usd_cny 使用 FRED 现成序列口径，便于保持来源收敛
+ */
+var OVERSEAS_MACRO_FRED_SERIES = {
+  fed_upper: 'DFEDTARU',
+  fed_lower: 'DFEDTARL',
+  sofr: 'SOFR',
+  ust_2y: 'DGS2',
+  ust_10y: 'DGS10',
+  us_real_10y: 'DFII10',
+  usd_broad: 'DTWEXBGS',
+  usd_cny: 'DEXCHUS',
+  vix: 'VIXCLS',
+  spx: 'SP500',
+  nasdaq_100: 'NASDAQ100'
+};
+
+/**
+ * Alpha Vantage 商品映射。
+ *
+ * 说明：
+ * - gold / wti / brent 使用日频
+ * - copper 官方只提供 monthly / quarterly / annual，这里固定 monthly
+ * - 若后续更换商品源，只需改这里与对应抓取函数即可
+ */
+var OVERSEAS_MACRO_ALPHA_SERIES = {
+  gold: {
+    fn: 'GOLD_SILVER_HISTORY',
+    symbol: 'GOLD',
+    interval: 'daily'
+  },
+  wti: {
+    fn: 'WTI',
+    interval: 'daily'
+  },
+  brent: {
+    fn: 'BRENT',
+    interval: 'daily'
+  },
+  copper: {
+    fn: 'COPPER',
+    interval: 'monthly'
+  }
+};

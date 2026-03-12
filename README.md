@@ -77,3 +77,31 @@ flowchart TB
 ## 提醒
 
 本项目用于研究记录和观察辅助，不构成投资建议。
+
+
+
+## Overseas macro secrets 配置
+
+`原始_海外宏观` 使用两个外部数据源：
+
+- `FRED_API_KEY`
+- `ALPHA_VANTAGE_API_KEY`
+
+不要把真实密钥明文提交到仓库里。推荐做法：
+
+1. **Apps Script 运行时**：把密钥保存到 **Script Properties**
+2. **GitHub**：把密钥保存到 **GitHub Secrets**
+3. 通过仓库里的 `setApiKeysFromParams(fredApiKey, alphaVantageApiKey)`，由 GitHub Actions 自动把 Secrets 写入 Script Properties
+4. **首次使用前**：把 Apps Script 项目部署为 **API executable**，并确保 `appsscript.json` 已包含 `executionApi` 配置
+
+建议在 GitHub 仓库中配置这些 secrets：
+
+- `GAS_SCRIPT_ID`
+- `CLASP_CLIENT_ID`
+- `CLASP_CLIENT_SECRET`
+- `CLASP_ACCESS_TOKEN`
+- `CLASP_REFRESH_TOKEN`
+- `FRED_API_KEY`
+- `ALPHA_VANTAGE_API_KEY`
+
+如果还没有配置好密钥，`fetchOverseasMacro_()` 不会中断主流程，只会在日志里提示缺少哪些 key，并跳过这张表的抓取。

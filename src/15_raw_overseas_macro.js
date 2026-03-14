@@ -26,8 +26,8 @@
 /**
  * 手工测试入口：默认遵循“今天已抓过则跳过”。
  */
-function testOverseasMacro_() {
-  return fetchOverseasMacro_(false);
+function testOverseasMacro() {
+  return forceFetchOverseasMacro_();
 }
 
 /**
@@ -38,7 +38,7 @@ function testOverseasMacro_() {
  * - 你怀疑上一次抓取结果有空值，想立即重抓
  */
 function forceFetchOverseasMacro_() {
-  return fetchOverseasMacro_(true);
+  return fetchOverseasMacro_(false);
 }
 
 /**
@@ -345,16 +345,44 @@ function fetchFredLatestObservation_(seriesId, apiKey) {
  * - copper 当前固定 monthly
  * - 返回结构与 FRED 保持一致，便于后续统一拼表
  */
+/**
+ * 从 Alpha Vantage 批量抓取商品相关字段。
+ *
+ * 重要：
+ * - Alpha Vantage 免费层有较严格的短时请求频率限制
+ * - 因此这里不要连续无间隔请求
+ * - 每次请求之间主动 sleep，避免触发 "1 request per second" 限制
+ */
 function fetchOverseasMacroFromAlphaVantage_() {
   var apiKey = getRequiredSecret_('ALPHA_VANTAGE_API_KEY');
   var out = {};
+  var fields = Object.keys(OVERSEAS_MACRO_ALPHA_SERIES);
 
-  Object.keys(OVERSEAS_MACRO_ALPHA_SERIES).forEach(function (field) {
-    out[field] = fetchAlphaVantageLatestObservation_(
-      OVERSEAS_MACRO_ALPHA_SERIES[field],
-      apiKey
-    );
-  });
+  for (var i = 0; i < fields.length; i++) {
+    var field = fields[i];
+    var spec = OVERSEAS_MACRO_ALPHA_SERIES[field];
+
+    try {
+      out[field] = fetchAlphaVantageLatestObservation_(spec, apiKey);
+    } catch (e) {
+      Logger.log(
+        'alpha field failed'
+        + ' | field=' + field
+        + ' | fn=' + spec.fn
+        + ' | error=' + e.message
+      );
+      out[field] = null;
+    }
+
+    /**
+     * 免费层限频保护：
+     * - 官方返回已明确提示 1 request per second
+     * - 这里留 1.2 秒缓冲，尽量避免边界抖动
+     */
+    if (i < fields.length - 1) {
+      Utilities.sleep(1200);
+    }
+  }
 
   return out;
 }
@@ -365,6 +393,19 @@ function fetchOverseasMacroFromAlphaVantage_() {
  * 重要：
  * - Alpha Vantage 免费层超限时，常常不是 HTTP 4xx，而是在 JSON 里返回 Note / Information
  * - 所以这里必须同时检查 HTTP 状态码和 JSON 错误字段
+ */
+
+/**
+ * 获取单个 Alpha Vantage 商品序列最近 observation。
+ *
+ * 重要说明：
+ * - Alpha Vantage 的商品接口虽然都放在 Commodities 分类下，
+ *   但不同 function 的返回结构不一定完全一致。
+ * - 例如：
+ *   - WTI / BRENT / COPPER 常见是 data[i].value
+ *   - GOLD_SILVER_HISTORY 可能不是 value，而是 price / close 等其他字段
+ *
+ * 因此这里不能只写死 obs.value，而要做兼容提取。
  */
 function fetchAlphaVantageLatestObservation_(spec, apiKey) {
   var url = buildAlphaVantageUrl_(spec, apiKey);
@@ -382,7 +423,8 @@ function fetchAlphaVantageLatestObservation_(spec, apiKey) {
     );
   }
 
-  var json = JSON.parse(res.getContentText());
+  var body = res.getContentText();
+  var json = JSON.parse(body);
 
   if (!json) {
     throw new Error('Alpha Vantage empty JSON: ' + spec.fn);
@@ -399,14 +441,17 @@ function fetchAlphaVantageLatestObservation_(spec, apiKey) {
 
   var data = json.data || [];
   if (!data.length) {
-    throw new Error('Alpha Vantage data empty: ' + spec.fn);
+    throw new Error(
+      'Alpha Vantage data empty: ' + spec.fn
+      + ' | body=' + safeSliceOverseas_(body, 500)
+    );
   }
 
   for (var i = 0; i < data.length; i++) {
     var obs = data[i];
     if (!obs || !obs.date) continue;
 
-    var value = toNumberOrNull_(obs.value);
+    var value = extractAlphaVantageNumericValue_(obs);
     if (!isFiniteNumber_(value)) continue;
 
     return {
@@ -416,8 +461,60 @@ function fetchAlphaVantageLatestObservation_(spec, apiKey) {
     };
   }
 
-  throw new Error('Alpha Vantage no valid observation: ' + spec.fn);
+  /**
+   * 如果走到这里，说明 data 有内容，但没有找到可识别的数值字段。
+   * 把首条记录的 key 打出来，方便快速修正解析逻辑。
+   */
+  var sample = data[0] || {};
+  var sampleKeys = Object.keys(sample).join(',');
+
+  throw new Error(
+    'Alpha Vantage no valid observation: ' + spec.fn
+    + ' | sample_keys=' + sampleKeys
+    + ' | sample=' + safeSliceOverseas_(JSON.stringify(sample), 500)
+  );
 }
+
+
+
+
+
+/**
+ * 从 Alpha Vantage 单条 observation 中提取数值。
+ *
+ * 为什么要单独封装：
+ * - 不同商品 function 的 JSON 字段名不完全一致
+ * - 不能把所有接口都假定成 data[i].value
+ *
+ * 当前兼容顺序：
+ * 1) value   - WTI / BRENT / COPPER 常见
+ * 2) price   - GOLD / SILVER 类接口常见候选
+ * 3) close   - 兜底兼容
+ * 4) 其他常见命名再向后补
+ */
+function extractAlphaVantageNumericValue_(obs) {
+  if (!obs) return null;
+
+  var candidates = [
+    obs.value,
+    obs.price,
+    obs.close,
+    obs.gold,
+    obs.silver
+  ];
+
+  for (var i = 0; i < candidates.length; i++) {
+    var n = toNumberOrNull_(candidates[i]);
+    if (isFiniteNumber_(n)) {
+      return n;
+    }
+  }
+
+  return null;
+}
+
+
+
 
 /**
  * 构造 Alpha Vantage 商品 URL。

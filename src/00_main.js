@@ -7,8 +7,11 @@
  * 手工测试入口：执行完整日更流程。
  */
 function test() {
-  runEnhancedSystem();
-  //buildSignal_();
+  //runEnhancedSystem();
+  
+  buildMetrics_();
+  buildSignal_();  
+  //buildSignalRecent_(7);
 }
 
 /**
